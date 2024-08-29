@@ -1,6 +1,6 @@
 {
   "name": "koishi-plugin-w-reactive",
-  "description": "WillBot: Reactive objects",
+  "description": "WillBot: Reactive service",
   "version": "0.0.1",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
@@ -9,14 +9,16 @@
     "dist"
   ],
   "license": "MIT",
-  "scripts": {},
   "keywords": [
     "chatbot",
     "koishi",
     "plugin"
   ],
-  "devDependencies": {},
   "peerDependencies": {
     "koishi": "4.17.11"
+  },
+  "dependencies": {
+    "@vue-reactivity/watch": "^0.2.0",
+    "@vue/reactivity": "^3.4.38"
   }
 }
