@@ -1,4 +1,4 @@
-import { Context, Create, Keys, Query, Service, Tables } from 'koishi'
+import { Context, Create, Keys, Query, Service, Tables, z } from 'koishi'
 import { reactive } from '@vue/reactivity'
 import { watch } from '@vue-reactivity/watch'
 
@@ -14,10 +14,11 @@ export type Reactive<T> = {
     patch: (fn: (raw: T) => any) => Promise<void>
 }
 
-export default class ReactiveService<C extends Context = Context> extends Service {
+class ReactiveService<C extends Context = Context> extends Service {
     static readonly inject = [ 'database' ]
+    static readonly [Service.provide] = [ 'reactive' ]
 
-    constructor(ctx: C) {
+    constructor(ctx: C, _config: ReactiveService.Config) {
         super(ctx, 'reactive')
     }
 
@@ -43,3 +44,11 @@ export default class ReactiveService<C extends Context = Context> extends Servic
         }
     }
 }
+
+namespace ReactiveService {
+    export interface Config {}
+
+    export const Config = z.object({})
+}
+
+export default ReactiveService
