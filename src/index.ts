@@ -1,4 +1,4 @@
-import { Context, Create, Keys, Query, Service, Tables, z } from 'koishi'
+import { Context, Create, Keys, Query, Service, Tables, Update, z } from 'koishi'
 import { reactive } from '@vue/reactivity'
 import { watch } from '@vue-reactivity/watch'
 
@@ -16,7 +16,6 @@ export type Reactive<T> = {
 
 class ReactiveService<C extends Context = Context> extends Service {
     static readonly inject = [ 'database' ]
-    static readonly [Service.provide] = [ 'reactive' ]
 
     constructor(ctx: C, _config: ReactiveService.Config) {
         super(ctx, 'reactive')
@@ -27,12 +26,14 @@ class ReactiveService<C extends Context = Context> extends Service {
         query: Query<Tables[K]>,
         defaultValue: Create<Tables[K], Tables>
     ): Promise<Reactive<Tables[K]>> {
-        const raw = await this.ctx.database.get(table, query)[0] ?? (
-            this.ctx.database.create(table, defaultValue),
-            defaultValue
-        )
-        const proxy = reactive(raw)
-        const update = () => this.ctx.database.set(table, query, raw)
+        let [ raw ] = await this.ctx.database.get(table, query)
+        raw ??= await this.ctx.database.create(table, defaultValue)
+        const proxy = reactive(raw) as Tables[K]
+        const update = () => {
+            const up = { ...raw }
+            if ('id' in up) delete up.id
+            return this.ctx.database.set(table, query, up as Update<Tables[K]>)
+        }
         const unwatch = watch(proxy, update)
         return {
             reactive: proxy,
