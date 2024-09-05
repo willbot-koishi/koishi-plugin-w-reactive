@@ -1,15 +1,22 @@
 import { Context, Create, Keys, Query, Service, Tables, Update, z } from 'koishi'
-import { reactive } from '@vue/reactivity'
+import { Reactive, reactive } from '@vue/reactivity'
 import { watch } from '@vue-reactivity/watch'
 
 declare module 'koishi' {
     interface Context {
         reactive: ReactiveService
     }
+
+    interface Tables {
+        [key: `w-reactive-${string}`]: {
+            id: string
+            value: any
+        }
+    }
 }
 
-export type Reactive<T> = {
-    reactive: T
+export type ReactiveHandler<T> = {
+    reactive: Reactive<T>
     dispose: () => void
     patch: (fn: (raw: T) => any) => Promise<void>
 }
@@ -21,25 +28,22 @@ class ReactiveService<C extends Context = Context> extends Service {
         super(ctx, 'reactive')
     }
 
-    async create<K extends Keys<Tables>>(
-        table: K,
-        query: Query<Tables[K]>,
-        defaultValue: Create<Tables[K], Tables>
-    ): Promise<Reactive<Tables[K]>> {
-        let [ raw ] = await this.ctx.database.get(table, query)
-        raw ??= await this.ctx.database.create(table, defaultValue)
-        const proxy = reactive(raw) as Tables[K]
-        const update = () => {
-            const up = { ...raw }
-            if ('id' in up) delete up.id
-            return this.ctx.database.set(table, query, up as Update<Tables[K]>)
-        }
+    async create<T extends {}>(name: string, id: string, defaultValue: T): Promise<ReactiveHandler<T>> {
+        const table = `w-reactive-${name}` as const
+        this.ctx.model.extend(table, {
+            id: 'string',
+            value: 'json'
+        }, { primary: 'id' })
+        const [ rec ] = await this.ctx.database.get(table, id)
+        let value: T = rec?.value ?? await this.ctx.database.create(table, { id, value: defaultValue })
+        const proxy = reactive(value)
+        const update = () => this.ctx.database.set(table, id, { value })
         const unwatch = watch(proxy, update)
         return {
             reactive: proxy,
             dispose: unwatch,
             patch: async (fn) => {
-                await fn(raw)
+                await fn(value)
                 await update()
             }
         }

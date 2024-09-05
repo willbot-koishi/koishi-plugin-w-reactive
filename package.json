@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-w-reactive",
   "description": "WillBot: Reactive service",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -20,5 +20,10 @@
   "dependencies": {
     "@vue-reactivity/watch": "^0.2.0",
     "@vue/reactivity": "^3.5.0-rc.1"
+  },
+  "scripts": {
+    "build": "yarn workspace willbot build w-reactive",
+    "bump": "yarn workspace willbot bump w-reactive",
+    "pub": "yarn workspace willbot pub w-reactive"
   }
 }
