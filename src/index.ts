@@ -35,7 +35,8 @@ class ReactiveService<C extends Context = Context> extends Service {
             value: 'json'
         }, { primary: 'id' })
         const [ rec ] = await this.ctx.database.get(table, id)
-        let value: T = rec?.value ?? await this.ctx.database.create(table, { id, value: defaultValue })
+        const value: T = rec?.value
+            ?? (await this.ctx.database.create(table, { id, value: defaultValue })).value
         const proxy = reactive(value)
         const update = () => this.ctx.database.set(table, id, { value })
         const unwatch = watch(proxy, update)
