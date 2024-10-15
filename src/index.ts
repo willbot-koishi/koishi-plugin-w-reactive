@@ -1,6 +1,4 @@
 import { Context, Service, z } from 'koishi'
-import { Reactive, reactive } from '@vue/reactivity'
-import { watch } from '@vue-reactivity/watch'
 
 declare module 'koishi' {
     interface Context {
@@ -15,20 +13,52 @@ declare module 'koishi' {
     }
 }
 
-export type ReactiveHandler<T> = {
-    reactive: Reactive<T>
+export type Watcher<T extends {}> = (updatedKey: keyof T) => void
+
+export type Reactive<T extends {}> = {
+    proxy: T
+    watch: (watcher: Watcher<T>) => () => void
+}
+
+export type DatabaseReactive<T extends {}> = {
+    reactive: T
     dispose: () => void
     patch: (fn: (raw: T) => any) => Promise<void>
 }
 
-class ReactiveService<C extends Context = Context> extends Service {
+const createReactive = <T extends {}>(value: T): Reactive<T> => {
+    const watchers: Watcher<T>[] = []
+    const callWatchers = (updatedKey: keyof T) => watchers
+        .forEach(watcher => watcher(updatedKey))
+
+    const proxy = new Proxy(value, {
+        set: (_, k, v) => {
+            value[k] = v
+            callWatchers(k as keyof T)
+            return true
+        }
+    })
+
+    return {
+        proxy,
+        watch: watcher => {
+            watchers.push(watcher)
+            return () => {
+                const index = watchers.indexOf(watcher)
+                if (index >= 0) watchers.splice(index, 1)
+            }
+        }
+    }
+}
+
+class ReactiveService extends Service {
     static readonly inject = [ 'database' ]
 
-    constructor(ctx: C, _config: ReactiveService.Config) {
+    constructor(ctx: Context, public config: ReactiveService.Config) {
         super(ctx, 'reactive')
     }
 
-    async create<T extends {}>(name: string, id: string, defaultValue: T): Promise<ReactiveHandler<T>> {
+    async create<T extends {}>(name: string, id: string, defaultValue: T): Promise<DatabaseReactive<T>> {
         const table = `w-reactive-${name}` as const
         this.ctx.model.extend(table, {
             id: 'string',
@@ -37,9 +67,9 @@ class ReactiveService<C extends Context = Context> extends Service {
         const [ rec ] = await this.ctx.database.get(table, id)
         const value: T = rec?.value
             ?? (await this.ctx.database.create(table, { id, value: defaultValue })).value
-        const proxy = reactive(value)
+        const { proxy, watch } = createReactive(value)
         const update = () => this.ctx.database.set(table, id, { value })
-        const unwatch = watch(proxy, update)
+        const unwatch = watch(update)
         return {
             reactive: proxy,
             dispose: unwatch,
